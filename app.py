@@ -10,7 +10,8 @@ with open("tokenizer_pseudo.pkl", "rb") as f:
 with open("tokenizer_cpp.pkl", "rb") as f:
     tokenizer_cpp = pickle.load(f)
 
-# Transformer Model Definition
+# Register Transformer Model
+@tf.keras.saving.register_keras_serializable()
 class Transformer(tf.keras.Model):
     def __init__(self, vocab_size, seq_length, embed_dim=256, num_heads=8, ff_dim=512):
         super(Transformer, self).__init__()
@@ -32,9 +33,6 @@ class Transformer(tf.keras.Model):
         ffn_output = self.ffn(out1)
         out2 = self.layernorm2(out1 + ffn_output)
         return self.output_layer(out2)
-
-# Register the class
-tf.keras.saving.register_keras_serializable()(Transformer)
 
 # Load Model
 try:
