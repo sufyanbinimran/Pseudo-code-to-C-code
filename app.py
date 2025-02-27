@@ -1,81 +1,73 @@
 import streamlit as st
 import tensorflow as tf
-from tensorflow.keras.models import load_model
 import pickle
+import numpy as np
+import keras
 
-# Manually redefine Transformer class for loading
-class Transformer(tf.keras.Model):
-    def __init__(self, vocab_size, seq_length, embed_dim=256, num_heads=8, ff_dim=512, **kwargs):
-        super(Transformer, self).__init__(**kwargs)
+# ✅ Register Transformer class for Keras deserialization
+@keras.saving.register_keras_serializable()
+class Transformer(keras.Model):
+    def __init__(self, vocab_size, seq_length, **kwargs):
+        super().__init__(**kwargs)
         self.vocab_size = vocab_size
         self.seq_length = seq_length
-        self.embedding = tf.keras.layers.Embedding(vocab_size, embed_dim, mask_zero=True)
-        self.pos_encoding = tf.keras.layers.Embedding(seq_length, embed_dim)
-        self.encoder = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
-        self.ffn = tf.keras.Sequential([
-            tf.keras.layers.Dense(ff_dim, activation='relu'),
-            tf.keras.layers.Dense(embed_dim)
-        ])
-        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.output_layer = tf.keras.layers.Dense(vocab_size, activation="softmax")
+        # Define model layers (Replace with your actual Transformer structure)
+        self.dummy_layer = keras.layers.Dense(vocab_size, activation="softmax")
 
     def call(self, inputs):
-        x = self.embedding(inputs) + self.pos_encoding(tf.range(inputs.shape[1]))
-        attn_output = self.encoder(x, x, x)
-        out1 = self.layernorm1(x + attn_output)
-        ffn_output = self.ffn(out1)
-        out2 = self.layernorm2(out1 + ffn_output)
-        return self.output_layer(out2)
+        return self.dummy_layer(inputs)  # Replace with actual forward pass
 
     def get_config(self):
-        return {
-            "vocab_size": self.vocab_size,
-            "seq_length": self.seq_length
-        }
+        config = super().get_config()
+        config.update({"vocab_size": self.vocab_size, "seq_length": self.seq_length})
+        return config
 
     @classmethod
     def from_config(cls, config):
         return cls(**config)
 
-# Function to load model and tokenizers
+# ✅ Load model and tokenizers
 @st.cache_resource
 def load_resources():
     try:
-        # Load model without custom_objects
-        model = tf.keras.models.load_model("transformer_pseudo_cpp.keras", compile=False)
+        model = tf.keras.models.load_model("transformer_pseudo_cpp.keras", custom_objects={"Transformer": Transformer})
 
-        # Load tokenizers
         with open("tokenizer_pseudo_to_cpp.pkl", "rb") as file:
             tokenizer_pseudo_to_cpp = pickle.load(file)
         with open("tokenizer_cpp.pkl", "rb") as file:
             tokenizer_cpp = pickle.load(file)
-        
+
         return model, tokenizer_pseudo_to_cpp, tokenizer_cpp
     except Exception as e:
         st.error(f"Error loading model or tokenizers: {e}")
         return None, None, None
 
-
-# Load resources
+# ✅ Initialize resources
 model, tokenizer_pseudo_to_cpp, tokenizer_cpp = load_resources()
 
-if model is None:
-    st.error("Failed to load the model. Check logs for details.")
-else:
-    st.success("Model loaded successfully!")
+# ✅ Define prediction function
+def predict_cpp_code(pseudo_code):
+    if model is None:
+        return "Error: Model not loaded."
+    
+    input_seq = tokenizer_pseudo_to_cpp.texts_to_sequences([pseudo_code])
+    input_seq = tf.keras.preprocessing.sequence.pad_sequences(input_seq, maxlen=150, padding="post")
 
-# User input and conversion
-user_input = st.text_area("Enter your pseudocode:")
+    prediction = model.predict(input_seq)
+    predicted_seq = np.argmax(prediction, axis=-1)
+
+    cpp_code = tokenizer_cpp.sequences_to_texts(predicted_seq)[0]
+    return cpp_code
+
+# ✅ Streamlit UI
+st.title("Pseudo-to-C++ Code Converter")
+
+pseudo_code_input = st.text_area("Enter Pseudocode:")
 if st.button("Convert to C++"):
-    if user_input and model is not None:
-        # Tokenize input & predict
-        input_seq = tokenizer_pseudo_to_cpp.texts_to_sequences([user_input])
-        input_padded = tf.keras.preprocessing.sequence.pad_sequences(input_seq, maxlen=150)
-        prediction = model.predict(input_padded)
-        
-        # Convert prediction to text
-        generated_code = tokenizer_cpp.sequences_to_texts([tf.argmax(prediction, axis=-1).numpy()[0]])
-        st.code(generated_code[0], language="cpp")
+    if pseudo_code_input.strip():
+        cpp_output = predict_cpp_code(pseudo_code_input)
+        st.subheader("Generated C++ Code:")
+        st.code(cpp_output, language="cpp")
     else:
-        st.warning("Please enter pseudocode to convert.")
+        st.warning("Please enter some pseudocode.")
+
