@@ -7,7 +7,7 @@ import numpy as np
 with open("tokenizer_cpp.pkl", "rb") as f:
     tokenizer_cpp = pickle.load(f)
 
-with open("tokenizer_pseudo_to_cpp.pkl", "rb") as f:
+with open("tokenizer_pseudo.pkl", "rb") as f:
     tokenizer_pseudo = pickle.load(f)
 
 # Load Transformer Model
