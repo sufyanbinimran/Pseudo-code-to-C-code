@@ -3,10 +3,12 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 import pickle
 
-# Manually redefine Transformer class to match the trained model
+# Manually redefine Transformer class for loading
 class Transformer(tf.keras.Model):
     def __init__(self, vocab_size, seq_length, embed_dim=256, num_heads=8, ff_dim=512, **kwargs):
         super(Transformer, self).__init__(**kwargs)
+        self.vocab_size = vocab_size
+        self.seq_length = seq_length
         self.embedding = tf.keras.layers.Embedding(vocab_size, embed_dim, mask_zero=True)
         self.pos_encoding = tf.keras.layers.Embedding(seq_length, embed_dim)
         self.encoder = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
@@ -26,13 +28,23 @@ class Transformer(tf.keras.Model):
         out2 = self.layernorm2(out1 + ffn_output)
         return self.output_layer(out2)
 
-# Define function to load model and tokenizers
+    def get_config(self):
+        return {
+            "vocab_size": self.vocab_size,
+            "seq_length": self.seq_length
+        }
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+# Function to load model and tokenizers
 @st.cache_resource
 def load_resources():
     try:
         model = load_model(
             "transformer_pseudo_cpp.keras",
-            custom_objects={"Transformer": Transformer}  # Ensures correct deserialization
+            custom_objects={"Transformer": Transformer}  # Ensure deserialization works
         )
         with open("tokenizer_pseudo_to_cpp.pkl", "rb") as file:
             tokenizer_pseudo_to_cpp = pickle.load(file)
@@ -51,7 +63,7 @@ if model is None:
 else:
     st.success("Model loaded successfully!")
 
-# Example user input
+# User input and conversion
 user_input = st.text_area("Enter your pseudocode:")
 if st.button("Convert to C++"):
     if user_input and model is not None:
