@@ -42,18 +42,20 @@ class Transformer(tf.keras.Model):
 @st.cache_resource
 def load_resources():
     try:
-        model = load_model(
-            "transformer_pseudo_cpp.keras",
-            custom_objects={"Transformer": Transformer}  # Ensure deserialization works
-        )
+        # Load model without custom_objects
+        model = tf.keras.models.load_model("transformer_pseudo_cpp.keras", compile=False)
+
+        # Load tokenizers
         with open("tokenizer_pseudo_to_cpp.pkl", "rb") as file:
             tokenizer_pseudo_to_cpp = pickle.load(file)
         with open("tokenizer_cpp.pkl", "rb") as file:
             tokenizer_cpp = pickle.load(file)
+        
         return model, tokenizer_pseudo_to_cpp, tokenizer_cpp
     except Exception as e:
         st.error(f"Error loading model or tokenizers: {e}")
         return None, None, None
+
 
 # Load resources
 model, tokenizer_pseudo_to_cpp, tokenizer_cpp = load_resources()
