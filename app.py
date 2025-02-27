@@ -3,6 +3,12 @@ import pickle
 import tensorflow as tf
 import numpy as np
 import os
+from tensorflow import keras
+from keras.saving import register_keras_serializable
+from transformer import Transformer  # Import Transformer class
+
+# Register Transformer for Keras serialization
+register_keras_serializable()(Transformer)
 
 # Load tokenizers
 def load_tokenizers():
@@ -23,7 +29,7 @@ def load_model():
         st.error("Model file not found. Please upload transformer_pseudo_cpp.keras")
         return None
     try:
-        return tf.keras.models.load_model(model_path)
+        return keras.models.load_model(model_path)
     except Exception as e:
         st.error(f"Error loading model: {e}")
         return None
