@@ -7,16 +7,10 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.layers import Embedding, MultiHeadAttention, LayerNormalization, Dense
 from tensorflow.keras.models import Model
 
-# Define the Transformer class
+# Define the Transformer class (Must match the architecture used in training)
 class Transformer(Model):
     def __init__(self, vocab_size, seq_length, embed_dim=256, num_heads=8, ff_dim=512, **kwargs):
         super(Transformer, self).__init__(**kwargs)
-        self.vocab_size = vocab_size
-        self.seq_length = seq_length
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.ff_dim = ff_dim
-
         self.embedding = Embedding(vocab_size, embed_dim, mask_zero=True)
         self.pos_encoding = Embedding(seq_length, embed_dim)
         self.encoder = MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
@@ -36,23 +30,29 @@ class Transformer(Model):
         out2 = self.layernorm2(out1 + ffn_output)
         return self.output_layer(out2)
 
-# Load model and tokenizers
+# Cache model and tokenizer loading for efficiency
 @st.cache_resource
 def load_resources():
-    model = load_model("transformer_pseudo_cpp.keras", custom_objects={"Transformer": Transformer})
-    
-    with open("tokenizer_pseudo_to_cpp.pkl", "rb") as file:
-        tokenizer_pseudo_to_cpp = pickle.load(file)
+    try:
+        model = load_model("transformer_pseudo_cpp.keras", custom_objects={"Transformer": Transformer})
+        with open("tokenizer_pseudo_to_cpp.pkl", "rb") as file:
+            tokenizer_pseudo_to_cpp = pickle.load(file)
+        with open("tokenizer_cpp.pkl", "rb") as file:
+            tokenizer_cpp = pickle.load(file)
+        return model, tokenizer_pseudo_to_cpp, tokenizer_cpp
+    except Exception as e:
+        st.error(f"Error loading model or tokenizers: {e}")
+        return None, None, None
 
-    with open("tokenizer_cpp.pkl", "rb") as file:
-        tokenizer_cpp = pickle.load(file)
-    
-    return model, tokenizer_pseudo_to_cpp, tokenizer_cpp
-
+# Load resources
 model, tokenizer_pseudo_to_cpp, tokenizer_cpp = load_resources()
 
+# Function to generate C++ code
 def generate_cpp(pseudocode, tokenizer_input, tokenizer_output, model, max_length=150):
-    """ Converts pseudocode to C++ using the trained Transformer model. """
+    """Converts pseudocode to C++ using the trained Transformer model."""
+    if not model:
+        return "Error: Model not loaded."
+
     input_seq = tokenizer_input.texts_to_sequences([pseudocode])
     input_seq = pad_sequences(input_seq, maxlen=max_length, padding="post")
 
