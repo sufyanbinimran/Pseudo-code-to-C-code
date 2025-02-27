@@ -39,12 +39,12 @@ class Transformer(Model):
 # Load model and tokenizers
 @st.cache_resource
 def load_resources():
-    model = load_model("models/transformer_pseudo_cpp.keras", custom_objects={"Transformer": Transformer})
+    model = load_model("transformer_pseudo_cpp.keras", custom_objects={"Transformer": Transformer})
     
-    with open("models/tokenizer_pseudo_to_cpp.pkl", "rb") as file:
+    with open("tokenizer_pseudo_to_cpp.pkl", "rb") as file:
         tokenizer_pseudo_to_cpp = pickle.load(file)
 
-    with open("models/tokenizer_cpp.pkl", "rb") as file:
+    with open("tokenizer_cpp.pkl", "rb") as file:
         tokenizer_cpp = pickle.load(file)
     
     return model, tokenizer_pseudo_to_cpp, tokenizer_cpp
