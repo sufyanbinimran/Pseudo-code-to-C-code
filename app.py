@@ -2,6 +2,7 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 import pickle
+from tensorflow.keras.utils import register_keras_serializable  # ✅ Correct Import
 
 # Load Tokenizers
 with open("tokenizer_pseudo.pkl", "rb") as f:
@@ -11,7 +12,7 @@ with open("tokenizer_cpp.pkl", "rb") as f:
     tokenizer_cpp = pickle.load(f)
 
 # Register Transformer Model
-@tf.keras.saving.register_keras_serializable()
+@register_keras_serializable()
 class Transformer(tf.keras.Model):
     def __init__(self, vocab_size, seq_length, embed_dim=256, num_heads=8, ff_dim=512):
         super(Transformer, self).__init__()
