@@ -2,16 +2,21 @@ import streamlit as st
 import pickle
 import tensorflow as tf
 import numpy as np
+from tensorflow import keras
+from transformer import Transformer  # Ensure 'transformer.py' contains the Transformer class
+
+# Register the Transformer class
+custom_objects = {"Transformer": Transformer}
 
 # Load Tokenizers
 with open("tokenizer_cpp.pkl", "rb") as f:
     tokenizer_cpp = pickle.load(f)
 
-with open("tokenizer_pseudo.pkl", "rb") as f:
+with open("tokenizer_pseudo_to_cpp.pkl", "rb") as f:
     tokenizer_pseudo = pickle.load(f)
 
 # Load Transformer Model
-model = tf.keras.models.load_model("transformer_pseudo_cpp.keras")
+model = keras.models.load_model("transformer_pseudo_cpp.keras", custom_objects=custom_objects)
 
 # Function to Convert Pseudocode to C++
 def predict_cpp(pseudo_code):
