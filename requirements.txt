@@ -1,4 +1,4 @@
+tensorflow
 streamlit
-tensorflow==2.17.1  # Changed from 2.16.0 to a compatible version
 numpy
-pickle5; python_version < "3.8"  # pickle5 is only needed for Python <3.8
+pickle5
