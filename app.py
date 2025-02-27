@@ -1,5 +1,3 @@
-!pip install streamlit tensorflow numpy pickle5
-
 import streamlit as st
 import pickle
 import tensorflow as tf
