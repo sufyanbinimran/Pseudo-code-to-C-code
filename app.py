@@ -4,16 +4,47 @@ import pickle
 import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.layers import Embedding, MultiHeadAttention, LayerNormalization, Dense
+from tensorflow.keras.models import Model
+
+# Define the Transformer class
+class Transformer(Model):
+    def __init__(self, vocab_size, seq_length, embed_dim=256, num_heads=8, ff_dim=512, **kwargs):
+        super(Transformer, self).__init__(**kwargs)
+        self.vocab_size = vocab_size
+        self.seq_length = seq_length
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.ff_dim = ff_dim
+
+        self.embedding = Embedding(vocab_size, embed_dim, mask_zero=True)
+        self.pos_encoding = Embedding(seq_length, embed_dim)
+        self.encoder = MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
+        self.ffn = tf.keras.Sequential([
+            Dense(ff_dim, activation='relu'),
+            Dense(embed_dim)
+        ])
+        self.layernorm1 = LayerNormalization(epsilon=1e-6)
+        self.layernorm2 = LayerNormalization(epsilon=1e-6)
+        self.output_layer = Dense(vocab_size, activation="softmax")
+
+    def call(self, inputs):
+        x = self.embedding(inputs) + self.pos_encoding(tf.range(inputs.shape[1]))
+        attn_output = self.encoder(x, x, x)
+        out1 = self.layernorm1(x + attn_output)
+        ffn_output = self.ffn(out1)
+        out2 = self.layernorm2(out1 + ffn_output)
+        return self.output_layer(out2)
 
 # Load model and tokenizers
 @st.cache_resource
 def load_resources():
-    model = load_model("transformer_pseudo_cpp.keras", custom_objects={"Transformer": Transformer})
+    model = load_model("models/transformer_pseudo_cpp.keras", custom_objects={"Transformer": Transformer})
     
-    with open("tokenizer_pseudo_to_cpp.pkl", "rb") as file:
+    with open("models/tokenizer_pseudo_to_cpp.pkl", "rb") as file:
         tokenizer_pseudo_to_cpp = pickle.load(file)
 
-    with open("tokenizer_cpp.pkl", "rb") as file:
+    with open("models/tokenizer_cpp.pkl", "rb") as file:
         tokenizer_cpp = pickle.load(file)
     
     return model, tokenizer_pseudo_to_cpp, tokenizer_cpp
