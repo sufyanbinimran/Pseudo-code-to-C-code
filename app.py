@@ -62,9 +62,10 @@ class Transformer(tf.keras.Model):
 
 @st.cache_resource
 def load_models():
-    model1 = tf.keras.models.load_model("transformer_model1.keras")
-    model2 = tf.keras.models.load_model("transformer_model2.keras")
+    model1 = tf.keras.models.load_model("transformer_model1.keras", safe_mode=False)
+    model2 = tf.keras.models.load_model("transformer_model2.keras", safe_mode=False)
     return model1, model2
+
 
 @st.cache_resource
 def load_tokenizers():
