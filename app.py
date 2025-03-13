@@ -1,3 +1,7 @@
+import tensorflow as tf
+import streamlit as st
+import pickle
+import numpy as np
 
 class MultiHeadAttention(tf.keras.layers.Layer):
     def __init__(self, d_model, num_heads):
@@ -25,12 +29,9 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         attn_output = tf.transpose(attn_output, perm=[0, 2, 1, 3])
         return self.dense(tf.reshape(attn_output, (batch_size, -1, self.d_model)))
 
-class TransformerEncoder(tf.keras.layers.Layer):
+class TransformerBlock(tf.keras.layers.Layer):
     def __init__(self, d_model, num_heads, dff):
-        super(TransformerEncoder, self).__init__()
-        self.d_model = d_model
-        self.num_heads = num_heads
-        self.dff = dff
+        super(TransformerBlock, self).__init__()
         self.attention = MultiHeadAttention(d_model, num_heads)
         self.ffn = tf.keras.Sequential([
             tf.keras.layers.Dense(dff, activation='relu'),
@@ -45,78 +46,19 @@ class TransformerEncoder(tf.keras.layers.Layer):
         ffn_output = self.ffn(out1)
         return self.layernorm2(out1 + ffn_output)
 
-    def get_config(self):
-        return {"d_model": self.d_model, "num_heads": self.num_heads, "dff": self.dff}
-
-class TransformerDecoder(tf.keras.layers.Layer):
-    def __init__(self, d_model, num_heads, dff):
-        super(TransformerDecoder, self).__init__()
-        self.d_model = d_model
-        self.num_heads = num_heads
-        self.dff = dff
-        self.attention1 = MultiHeadAttention(d_model, num_heads)
-        self.attention2 = MultiHeadAttention(d_model, num_heads)
-        self.ffn = tf.keras.Sequential([
-            tf.keras.layers.Dense(dff, activation='relu'),
-            tf.keras.layers.Dense(d_model)
-        ])
-        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.layernorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-
-    def call(self, x, enc_output):
-        attn1 = self.attention1(x, x, x)
-        out1 = self.layernorm1(x + attn1)
-        attn2 = self.attention2(out1, enc_output, enc_output)
-        out2 = self.layernorm2(out1 + attn2)
-        ffn_output = self.ffn(out2)
-        return self.layernorm3(out2 + ffn_output)
-
-    def get_config(self):
-        return {"d_model": self.d_model, "num_heads": self.num_heads, "dff": self.dff}
-
 @tf.keras.utils.register_keras_serializable()
 class Transformer(tf.keras.Model):
     def __init__(self, vocab_size, d_model, num_heads, dff, max_len):
         super(Transformer, self).__init__()
-        self.vocab_size = vocab_size
-        self.d_model = d_model
-        self.num_heads = num_heads
-        self.dff = dff
-        self.max_len = max_len
-
         self.embedding = tf.keras.layers.Embedding(vocab_size, d_model, input_length=max_len)
-        self.encoder = TransformerEncoder(d_model, num_heads, dff)
-        self.decoder = TransformerDecoder(d_model, num_heads, dff)
+        self.encoder = TransformerBlock(d_model, num_heads, dff)
+        self.decoder = TransformerBlock(d_model, num_heads, dff)
         self.final_layer = tf.keras.layers.Dense(vocab_size, activation='softmax')
 
     def call(self, inputs):
         enc_output = self.encoder(self.embedding(inputs))
-        dec_output = self.decoder(self.embedding(inputs), enc_output)
+        dec_output = self.decoder(self.embedding(inputs))
         return self.final_layer(dec_output)
-
-    def get_config(self):
-        return {
-            "vocab_size": self.vocab_size,
-            "d_model": self.d_model,
-            "num_heads": self.num_heads,
-            "dff": self.dff,
-            "max_len": self.max_len,
-        }
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-
-
-
-
-import streamlit as st
-import tensorflow as tf
-import pickle
-import numpy as np
 
 @st.cache_resource
 def load_models():
