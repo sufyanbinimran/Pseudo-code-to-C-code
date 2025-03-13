@@ -1,10 +1,4 @@
 streamlit
-numpy
-pandas
 tensorflow
-torch
-transformers
-scikit-learn
-matplotlib
-seaborn
-requests
+numpy
+pickle5
