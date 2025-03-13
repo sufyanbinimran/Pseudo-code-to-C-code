@@ -1,4 +1,10 @@
 streamlit
-tensorflow
 numpy
-pickle
+pandas
+tensorflow
+torch
+transformers
+scikit-learn
+matplotlib
+seaborn
+requests
