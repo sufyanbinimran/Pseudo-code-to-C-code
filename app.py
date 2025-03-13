@@ -2,72 +2,43 @@ import streamlit as st
 import tensorflow as tf
 import pickle
 import numpy as np
-import keras
 
-# ✅ Register Transformer class for Keras deserialization
-@keras.saving.register_keras_serializable()
-class Transformer(keras.Model):
-    def __init__(self, vocab_size, seq_length, **kwargs):
-        super().__init__(**kwargs)
-        self.vocab_size = vocab_size
-        self.seq_length = seq_length
-        # Define model layers (Replace with your actual Transformer structure)
-        self.dummy_layer = keras.layers.Dense(vocab_size, activation="softmax")
-
-    def call(self, inputs):
-        return self.dummy_layer(inputs)  # Replace with actual forward pass
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"vocab_size": self.vocab_size, "seq_length": self.seq_length})
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-# ✅ Load model and tokenizers
 @st.cache_resource
-def load_resources():
-    try:
-        model = tf.keras.models.load_model("transformer_pseudo_cpp.keras", custom_objects={"Transformer": Transformer})
+def load_models():
+    model1 = tf.keras.models.load_model("transformer_model1.keras")
+    model2 = tf.keras.models.load_model("transformer_model2.keras")
+    return model1, model2
 
-        with open("tokenizer_pseudo_to_cpp.pkl", "rb") as file:
-            tokenizer_pseudo_to_cpp = pickle.load(file)
-        with open("tokenizer_cpp.pkl", "rb") as file:
-            tokenizer_cpp = pickle.load(file)
+@st.cache_resource
+def load_tokenizers():
+    with open("cpp_tokenizer1.pkl", "rb") as f:
+        cpp_tokenizer1 = pickle.load(f)
+    with open("pseudocode_tokenizer1.pkl", "rb") as f:
+        pseudocode_tokenizer1 = pickle.load(f)
+    with open("cpp_tokenizer2.pkl", "rb") as f:
+        cpp_tokenizer2 = pickle.load(f)
+    with open("pseudocode_tokenizer2.pkl", "rb") as f:
+        pseudocode_tokenizer2 = pickle.load(f)
+    return cpp_tokenizer1, pseudocode_tokenizer1, cpp_tokenizer2, pseudocode_tokenizer2
 
-        return model, tokenizer_pseudo_to_cpp, tokenizer_cpp
-    except Exception as e:
-        st.error(f"Error loading model or tokenizers: {e}")
-        return None, None, None
+model1, model2 = load_models()
+cpp_tokenizer1, pseudocode_tokenizer1, cpp_tokenizer2, pseudocode_tokenizer2 = load_tokenizers()
 
-# ✅ Initialize resources
-model, tokenizer_pseudo_to_cpp, tokenizer_cpp = load_resources()
-
-# ✅ Define prediction function
-def predict_cpp_code(pseudo_code):
-    if model is None:
-        return "Error: Model not loaded."
-    
-    input_seq = tokenizer_pseudo_to_cpp.texts_to_sequences([pseudo_code])
-    input_seq = tf.keras.preprocessing.sequence.pad_sequences(input_seq, maxlen=150, padding="post")
-
+def convert_text(input_text, model, input_tokenizer, output_tokenizer):
+    input_seq = input_tokenizer.texts_to_sequences([input_text])
+    input_seq = tf.keras.preprocessing.sequence.pad_sequences(input_seq, maxlen=100, padding='post')
     prediction = model.predict(input_seq)
     predicted_seq = np.argmax(prediction, axis=-1)
+    output_text = output_tokenizer.sequences_to_texts(predicted_seq)
+    return output_text[0]
 
-    cpp_code = tokenizer_cpp.sequences_to_texts(predicted_seq)[0]
-    return cpp_code
+st.title("Code Converter (Transformer Model)")
+option = st.selectbox("Select conversion type:", ["C++ to Pseudocode", "Pseudocode to C++"])
+input_text = st.text_area("Enter your code:")
 
-# ✅ Streamlit UI
-st.title("Pseudo-to-C++ Code Converter")
-
-pseudo_code_input = st.text_area("Enter Pseudocode:")
-if st.button("Convert to C++"):
-    if pseudo_code_input.strip():
-        cpp_output = predict_cpp_code(pseudo_code_input)
-        st.subheader("Generated C++ Code:")
-        st.code(cpp_output, language="cpp")
+if st.button("Convert"):
+    if option == "C++ to Pseudocode":
+        output_text = convert_text(input_text, model1, cpp_tokenizer1, pseudocode_tokenizer1)
     else:
-        st.warning("Please enter some pseudocode.")
-
+        output_text = convert_text(input_text, model2, pseudocode_tokenizer2, cpp_tokenizer2)
+    st.text_area("Converted Code:", value=output_text, height=200)
