@@ -33,7 +33,6 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         q = self.split_heads(self.wq(q), batch_size)
         k = self.split_heads(self.wk(k), batch_size)
         v = self.split_heads(self.wv(v), batch_size)
-        # Scaled dot-product attention
         attn_scores = tf.matmul(q, k, transpose_b=True)
         attn_scores /= tf.math.sqrt(tf.cast(self.depth, tf.float32))
         attn_weights = tf.nn.softmax(attn_scores)
@@ -41,6 +40,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         attn_output = tf.transpose(attn_output, perm=[0, 2, 1, 3])
         reshaped = tf.reshape(attn_output, (batch_size, -1, self.d_model))
         return self.dense(reshaped)
+
 
 @tf.keras.utils.register_keras_serializable()
 class TransformerBlock(tf.keras.layers.Layer):
@@ -72,6 +72,7 @@ class TransformerBlock(tf.keras.layers.Layer):
         ffn_output = self.ffn(out1)
         return self.layernorm2(out1 + ffn_output)
 
+
 @tf.keras.utils.register_keras_serializable()
 class Transformer(tf.keras.Model):
     def __init__(self, vocab_size, d_model, num_heads, dff, max_len, **kwargs):
@@ -81,11 +82,13 @@ class Transformer(tf.keras.Model):
         self.num_heads = num_heads
         self.dff = dff
         self.max_len = max_len
-        # Removed deprecated `input_length` argument.
+        # Removed deprecated input_length from Embedding.
         self.embedding = tf.keras.layers.Embedding(vocab_size, d_model)
         self.encoder = TransformerBlock(d_model, num_heads, dff)
         self.decoder = TransformerBlock(d_model, num_heads, dff)
         self.final_layer = tf.keras.layers.Dense(vocab_size, activation='softmax')
+        # Force build the model so all layers (including Dense layers) are built.
+        self.build((None, max_len))
 
     def get_config(self):
         config = super(Transformer, self).get_config()
@@ -103,24 +106,23 @@ class Transformer(tf.keras.Model):
         dec_output = self.decoder(self.embedding(inputs))
         return self.final_layer(dec_output)
 
+
 @st.cache_resource
 def load_models():
+    # Provide custom objects and load without compiling.
     custom_objs = {
         "Transformer": Transformer,
         "TransformerBlock": TransformerBlock,
         "MultiHeadAttention": MultiHeadAttention
     }
-    model1 = tf.keras.models.load_model(
-        "transformer_model1.keras",
-        safe_mode=False,
-        custom_objects=custom_objs
-    )
-    model2 = tf.keras.models.load_model(
-        "transformer_model2.keras",
-        safe_mode=False,
-        custom_objects=custom_objs
-    )
+    model1 = tf.keras.models.load_model("transformer_model1.keras",
+                                        custom_objects=custom_objs,
+                                        compile=False)
+    model2 = tf.keras.models.load_model("transformer_model2.keras",
+                                        custom_objects=custom_objs,
+                                        compile=False)
     return model1, model2
+
 
 @st.cache_resource
 def load_tokenizers():
@@ -134,9 +136,11 @@ def load_tokenizers():
         pseudocode_tokenizer2 = pickle.load(f)
     return cpp_tokenizer1, pseudocode_tokenizer1, cpp_tokenizer2, pseudocode_tokenizer2
 
+
 # Load models and tokenizers
 model1, model2 = load_models()
 cpp_tokenizer1, pseudocode_tokenizer1, cpp_tokenizer2, pseudocode_tokenizer2 = load_tokenizers()
+
 
 def convert_text(input_text, model, input_tokenizer, output_tokenizer):
     input_seq = input_tokenizer.texts_to_sequences([input_text])
@@ -145,6 +149,7 @@ def convert_text(input_text, model, input_tokenizer, output_tokenizer):
     predicted_seq = np.argmax(prediction, axis=-1)
     output_text = output_tokenizer.sequences_to_texts(predicted_seq)
     return output_text[0]
+
 
 st.title("Code Converter (Transformer Model)")
 option = st.selectbox("Select conversion type:", ["C++ to Pseudocode", "Pseudocode to C++"])
